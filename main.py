@@ -1,4 +1,10 @@
-import json, sys
+# by andrzej-skuridin
+# Python 3.11
+
+import json
+import math
+import sys
+
 from tinydb import TinyDB, Query
 
 FIELDS = ('family_name',
@@ -15,7 +21,7 @@ db = TinyDB('db.txt')
 def subscriber_exists(family_name: str,
                       first_name: str,
                       patronymic: str) -> bool:
-    """Проверяет наличие абонента в адресной книге."""
+    """Проверяет наличие абонента в телефонном справочнике."""
     if len(db.search(Query().fragment({'family_name': family_name,
                                        'first_name': first_name,
                                        'patronymic': patronymic})
@@ -25,8 +31,8 @@ def subscriber_exists(family_name: str,
 
 
 def insert_subscriber() -> None:
-    """Внести нового пользователя в адресную книгу.
-    Считается, что все поля обязательные."""
+    """Внести нового пользователя в телефонный справочник.
+    Считается, что все поля обязательные, ограничений на вводимые данные нет."""
 
     family_name = input('Введите фамилию: ')
     first_name = input('Введите имя: ')
@@ -34,6 +40,7 @@ def insert_subscriber() -> None:
     organization = input('Введите название организации: ')
     work_number = input('Введите рабочий телефон: ')
     personal_number = input('Введите личный телефон: ')
+
     if not subscriber_exists(family_name=family_name,
                              first_name=first_name,
                              patronymic=patronymic, ):
@@ -55,7 +62,8 @@ def find_subscriber() -> None:
     lookout_fields = []
     print('Введите название поля, по которому будет проводиться поиск.\n'
           'Если полей поиска несколько, вводите по одному за раз.\n'
-          'Поля: family_name, first_name, patronymic.\n'
+          'Поля: family_name, first_name, patronymic, organization, '
+          'work_number, personal_number.\n'
           'Введите /stop, если хотите прекратить ввод полей.\n')
     while True:
         lookout_field = input('>> ')
@@ -92,7 +100,7 @@ def find_subscriber() -> None:
 
 
 def update_subscriber() -> None:
-    """Изменить данные о пользователе в адресной книге."""
+    """Изменить данные о пользователе в телефонном справочнике."""
 
     print('Введите ФИО редактируемого пользователя.')
     family_name = input('Введите фамилию: ')
@@ -139,38 +147,86 @@ def list_all_subscribers() -> None:
         print(f'Фамилия: {subscriber["family_name"]}\n'
               f'Имя: {subscriber["first_name"]}\n'
               f'Отчество: {subscriber["patronymic"]}\n'
+              f'Организация: {subscriber["organization"]}\n'
+              f'Рабочий номер: {subscriber["work_number"]}\n'
+              f'Личный номер: {subscriber["personal_number"]}\n'
               )
 
 
 def paginate(items: list, page_size: int, page_number: int) -> list:
+    """Разбивает список абонентов по страницам."""
+
     start_index = (page_number - 1) * page_size
     end_index = start_index + page_size
     return items[start_index:end_index]
 
 
-def paginated_list_subscribers():
-    pass
+def paginated_list_subscribers() -> None:
+    """Выводит список абонентов постранично."""
+
+    subscribers = json.loads(json.dumps(db.all()))
+    print('Введите число абонентов на странице (положительное число).')
+    try:
+        n_subs = int(input('>> '))
+    except ValueError:
+        print('Это не число. Будет выведен 1 абонент на страницу.')
+        n_subs = 1
+    if n_subs < 1:
+        print('Отрицательные числа не годятся. Будет выведен 1 абонент на страницу.')
+        n_subs = 1
+
+    while True:
+        print(f'Число страниц в справочнике: {math.ceil(len(subscribers) / n_subs)}.')
+        print('Введите номер страницы телефонного справочника (положительное число).\n'
+              'Введите 0, чтобы прекратить просмотр.')
+        try:
+            page = int(input('>> '))
+        except ValueError:
+            print('Это не число. Будет открыта первая страница.')
+            page = 1
+        if page == 0:
+            break
+        elif page > 0:
+            sorted_subscribers = sorted(subscribers,
+                                        key=lambda x: (x['family_name'],
+                                                       x['first_name'],
+                                                       x['patronymic']))
+            for subscriber in paginate(items=sorted_subscribers,
+                                       page_size=n_subs,
+                                       page_number=page):
+                print(f'Фамилия: {subscriber["family_name"]}\n'
+                      f'Имя: {subscriber["first_name"]}\n'
+                      f'Отчество: {subscriber["patronymic"]}\n'
+                      f'Организация: {subscriber["organization"]}\n'
+                      f'Рабочий номер: {subscriber["work_number"]}\n'
+                      f'Личный номер: {subscriber["personal_number"]}\n'
+                      )
 
 
 COMMANDS = {
     0: sys.exit,
     1: list_all_subscribers,
-    2: insert_subscriber,
-    3: update_subscriber,
-    4: find_subscriber
-
+    2: paginated_list_subscribers,
+    3: insert_subscriber,
+    4: update_subscriber,
+    5: find_subscriber
 }
 
 if __name__ == '__main__':
     while True:
         print('Введите команду:\n'
-              '0 - выйти\n'
-              '1 - отобразить абонентов в адресной книге\n'
-              '2 - внести нового абонента в адресную книгу\n'
-              '3 - отредактировать данные об абоненте\n'
-              '4 - поиск абонентов в адресной книге')
+              '0 - завершить работу\n'
+              '1 - отобразить всех абонентов в справочнике\n'
+              '2 - отобразить абонентов в справочнике постранично\n'
+              '3 - внести нового абонента в адресную книгу\n'
+              '4 - отредактировать данные об абоненте\n'
+              '5 - поиск абонентов в справочнике')
 
-        command = int(input('>> '))
+        try:
+            command = int(input('>> '))
+        except ValueError:
+            print('Это не число. Введите число от 1 до 5.')
+            continue
 
         if command in COMMANDS:
             COMMANDS[command]()
