@@ -24,6 +24,7 @@ def subscriber_exists(family_name: str,
                       work_number: str,
                       personal_number: str) -> bool:
     """Проверяет наличие абонента в телефонном справочнике."""
+
     if len(db.search(Query().fragment({'family_name': family_name,
                                        'first_name': first_name,
                                        'patronymic': patronymic,
@@ -41,6 +42,7 @@ def name_exists(family_name: str,
                 patronymic: str,
                 ) -> bool:
     """Проверяет наличие ФИО в телефонном справочнике."""
+
     if len(db.search(Query().fragment({'family_name': family_name,
                                        'first_name': first_name,
                                        'patronymic': patronymic,
@@ -51,6 +53,8 @@ def name_exists(family_name: str,
 
 
 def printer(subscribers: list) -> None:
+    """Печатает информацию об абоненте."""
+
     for subscriber in subscribers:
         print(f'ID: {subscriber.doc_id}\n'
               f'Фамилия: {subscriber["family_name"]}\n'
@@ -126,6 +130,8 @@ def find_subscriber() -> None:
         print('Не обнаружено полей для поиска. Поиск прерван.')
 
 def updater(subscriber_id: int) -> None:
+    """Вспомогательная функция для обновления данных."""
+
     switch = '1'
     while switch != '/exit':
         print('Введите название поля, которое хотите отредактировать.\n'
@@ -178,6 +184,7 @@ def update_subscriber() -> None:
 
 def list_all_subscribers() -> None:
     """Вывести список всех абонентов."""
+
     subscribers = db.all()
     sorted_subscribers = sorted(subscribers,
                                 key=lambda x: (x['family_name'],
