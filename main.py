@@ -1,7 +1,6 @@
 # by andrzej-skuridin
 # Python 3.11
 
-import json
 import math
 import sys
 
@@ -20,19 +19,51 @@ db = TinyDB('db.txt')
 
 def subscriber_exists(family_name: str,
                       first_name: str,
-                      patronymic: str) -> bool:
+                      patronymic: str,
+                      organization: str,
+                      work_number: str,
+                      personal_number: str) -> bool:
     """Проверяет наличие абонента в телефонном справочнике."""
     if len(db.search(Query().fragment({'family_name': family_name,
                                        'first_name': first_name,
-                                       'patronymic': patronymic})
+                                       'patronymic': patronymic,
+                                       'organization': organization,
+                                       'work_number': work_number,
+                                       'personal_number': personal_number,
+                                       })
                      )) > 0:
         return True
     return False
 
 
+def name_exists(family_name: str,
+                first_name: str,
+                patronymic: str,
+                ) -> bool:
+    """Проверяет наличие ФИО в телефонном справочнике."""
+    if len(db.search(Query().fragment({'family_name': family_name,
+                                       'first_name': first_name,
+                                       'patronymic': patronymic,
+                                       })
+                     )) > 0:
+        return True
+    return False
+
+
+def printer(subscribers: list) -> None:
+    for subscriber in subscribers:
+        print(f'ID: {subscriber.doc_id}\n'
+              f'Фамилия: {subscriber["family_name"]}\n'
+              f'Имя: {subscriber["first_name"]}\n'
+              f'Отчество: {subscriber["patronymic"]}\n'
+              f'Организация: {subscriber["organization"]}\n'
+              f'Рабочий номер: {subscriber["work_number"]}\n'
+              f'Личный номер: {subscriber["personal_number"]}\n'
+              )
+
+
 def insert_subscriber() -> None:
-    """Внести нового пользователя в телефонный справочник.
-    Считается, что ФИО не может повторяться."""
+    """Внести нового пользователя в телефонный справочник."""
 
     family_name = input('Введите фамилию: ')
     first_name = input('Введите имя: ')
@@ -43,7 +74,10 @@ def insert_subscriber() -> None:
 
     if not subscriber_exists(family_name=family_name,
                              first_name=first_name,
-                             patronymic=patronymic, ):
+                             patronymic=patronymic,
+                             organization=organization,
+                             work_number=work_number,
+                             personal_number=personal_number):
         db.insert({'family_name': family_name,
                    'first_name': first_name,
                    'patronymic': patronymic,
@@ -57,7 +91,7 @@ def insert_subscriber() -> None:
 
 
 def find_subscriber() -> None:
-    """Выводит данные об определённом абоненте."""
+    """Поиск абонентов в телефонном справочнике."""
 
     lookout_fields = []
     print('Введите название поля, по которому будет проводиться поиск.\n'
@@ -82,21 +116,33 @@ def find_subscriber() -> None:
             print(f'Введите поисковое значение для поля {field}.')
             val = input('>> ')
             vals[field] = val
-        subscribers = json.loads(json.dumps(db.search(Query().fragment(vals))))
+        subscribers = db.search(Query().fragment(vals))
         sorted_subscribers = sorted(subscribers,
                                     key=lambda x: (x['family_name'],
                                                    x['first_name'],
                                                    x['patronymic']))
-        for subscriber in sorted_subscribers:
-            print(f'Фамилия: {subscriber["family_name"]}\n'
-                  f'Имя: {subscriber["first_name"]}\n'
-                  f'Отчество: {subscriber["patronymic"]}\n'
-                  f'Организация: {subscriber["organization"]}\n'
-                  f'Рабочий номер: {subscriber["work_number"]}\n'
-                  f'Личный номер: {subscriber["personal_number"]}\n'
-                  )
+        printer(subscribers=sorted_subscribers)
     else:
         print('Не обнаружено полей для поиска. Поиск прерван.')
+
+def updater(subscriber_id: int) -> None:
+    switch = '1'
+    while switch != '/exit':
+        print('Введите название поля, которое хотите отредактировать.\n'
+              'Поля: family_name, first_name, patronymic, organization, '
+              'work_number, personal_number.\n'
+              'Введите /exit, если хотите выйти из редактора.\n')
+        if switch == '/exit':
+            break
+        switch = input('>> ')
+        if switch in FIELDS:
+            print(f'Введите новое значения для поля {switch}: ')
+            new_value = input()
+            db.update(fields={switch: new_value},
+                      doc_ids=[subscriber_id],
+                      )
+        elif switch not in FIELDS and switch != '/exit':
+            print('Такого поля не существует!')
 
 
 def update_subscriber() -> None:
@@ -106,35 +152,33 @@ def update_subscriber() -> None:
     family_name = input('Введите фамилию: ')
     first_name = input('Введите имя: ')
     patronymic = input('Введите отчество: ')
-    if subscriber_exists(family_name=family_name,
-                         first_name=first_name,
-                         patronymic=patronymic, ):
-        switch = '1'
-        while switch != '/exit':
-            print('Введите название поля, которое хотите отредактировать.\n'
-                  'Поля: family_name, first_name, patronymic, organization, '
-                  'work_number, personal_number.\n'
-                  'Введите /exit, если хотите выйти из редактора.\n')
-            if switch == '/exit':
-                break
-            switch = input('>> ')
-            if switch in FIELDS:
-                print(f'Введите новое значения для поля {switch}: ')
-                new_value = input()
-                db.update(fields={switch: new_value},
-                          cond=Query().fragment({'family_name': family_name,
-                                                 'first_name': first_name,
-                                                 'patronymic': patronymic})
-                          )
-            elif switch not in FIELDS and switch != '/exit':
-                print('Такого поля не существует!')
-    else:
+    subscribers = db.search(cond=Query().fragment({'family_name': family_name,
+                                                   'first_name': first_name,
+                                                   'patronymic': patronymic}))
+    n_subs = len(subscribers)
+    if n_subs == 0:
         print('Абонент не найден!')
+    elif n_subs > 1:
+        available_ids = [str(subscriber.doc_id) for subscriber in subscribers]
+        print('Обнаружено несколько абонентов с совпадающими ФИО. Выберите пользователя по ID.')
+        printer(subscribers=subscribers)
+        while True:
+            try:
+                sub_id = int(input('Введите ID: '))
+                if sub_id not in available_ids:
+                    print(f'Неверный ID. Допустимые значения: {", ".join(available_ids)}.')
+                    continue
+                updater(subscriber_id=sub_id)
+                break
+            except ValueError:
+                print('Это не число. Попробуйте ещё раз.')
+    else:
+        updater(subscriber_id=subscribers[0].doc_id)
 
 
 def list_all_subscribers() -> None:
     """Вывести список всех абонентов."""
-    subscribers = json.loads(json.dumps(db.all()))
+    subscribers = db.all()
     sorted_subscribers = sorted(subscribers,
                                 key=lambda x: (x['family_name'],
                                                x['first_name'],
@@ -142,15 +186,7 @@ def list_all_subscribers() -> None:
 
     subscribers_amount = len(sorted_subscribers)
     print(f'Абонентов в телефонном справочнике: {subscribers_amount}.')
-
-    for subscriber in sorted_subscribers:
-        print(f'Фамилия: {subscriber["family_name"]}\n'
-              f'Имя: {subscriber["first_name"]}\n'
-              f'Отчество: {subscriber["patronymic"]}\n'
-              f'Организация: {subscriber["organization"]}\n'
-              f'Рабочий номер: {subscriber["work_number"]}\n'
-              f'Личный номер: {subscriber["personal_number"]}\n'
-              )
+    printer(subscribers=sorted_subscribers)
 
 
 def paginate(items: list, page_size: int, page_number: int) -> list:
@@ -164,7 +200,7 @@ def paginate(items: list, page_size: int, page_number: int) -> list:
 def paginated_list_subscribers() -> None:
     """Выводит список абонентов постранично."""
 
-    subscribers = json.loads(json.dumps(db.all()))
+    subscribers = db.all()
     print('Введите число абонентов на странице (положительное число).')
     try:
         n_subs = int(input('>> '))
@@ -209,7 +245,7 @@ COMMANDS = {
     2: paginated_list_subscribers,
     3: insert_subscriber,
     4: update_subscriber,
-    5: find_subscriber
+    5: find_subscriber,
 }
 
 if __name__ == '__main__':
