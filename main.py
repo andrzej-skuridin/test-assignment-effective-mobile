@@ -171,7 +171,7 @@ def update_subscriber() -> None:
         while True:
             try:
                 sub_id = int(input('Введите ID: '))
-                if sub_id not in available_ids:
+                if str(sub_id) not in available_ids:
                     print(f'Неверный ID. Допустимые значения: {", ".join(available_ids)}.')
                     continue
                 updater(subscriber_id=sub_id)
