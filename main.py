@@ -129,6 +129,7 @@ def find_subscriber() -> None:
     else:
         print('Не обнаружено полей для поиска. Поиск прерван.')
 
+
 def updater(subscriber_id: int) -> None:
     """Вспомогательная функция для обновления данных."""
 
